@@ -88,13 +88,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "match_cast"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7f917d948ec8885c52554a3237b3b866a8edf25087fba2f68905a8275aa08dd"
+
+[[package]]
 name = "phpxx"
 version = "0.1.0"
 dependencies = [
  "colored",
  "dyn-clone",
  "logos",
+ "match_cast",
  "snailquote",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -161,6 +169,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "unicode-segmentation"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3bc443ded17b11305ffffe6b37e2076f328a5a8cb6aa877b1b98f77699e98b5"
 
 [[package]]
 name = "unicode-xid"

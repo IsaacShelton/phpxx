@@ -1,30 +1,69 @@
-
 use super::*;
+use std::io::Write;
 
 pub struct EchoExpr {
-    pub value: Box<dyn Expr>
+    pub value: Expression,
+    pub newline: bool
 }
 
 impl EchoExpr {
-    pub fn new(value: Box<dyn Expr>) -> Box<dyn Expr> {
-        Box::new(EchoExpr {value: value})
+    pub fn new(value: Box<dyn Expr>, newline: bool) -> Box<dyn Expr> {
+        Box::new(Self { value, newline })
     }
 }
 
 impl Expr for EchoExpr {
-    fn evaluate(&self) -> Box<dyn Expr> {
+    fn as_any(&self) -> &dyn std::any::Any {
+        return self;
+    }
+
+    fn evaluate(&self) -> Expression {
         let message = self.value.evaluate().stringify();
-        println!("{}", message);
+
+        if self.newline {
+            println!("{}", message);
+        } else {
+            print!("{}", message);
+            std::io::stdout().flush().unwrap();
+        }
+        
         VoidExpr::new()
     }
 
     fn stringify(&self) -> String {
-        panic!("Cannot stringify EchoExpr");
+        panic!();
+    }
+
+    fn visualize(&self) -> String {
+        if self.newline {
+            format!("echo {}", self.value.visualize())
+        } else {
+            format!("echo -n {}", self.value.visualize()) 
+        }
+    }
+
+    fn plus(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
+    }
+
+    fn minus(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
+    }
+
+    fn multiply(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
+    }
+    
+    fn divide(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
     }
 }
 
 impl Clone for EchoExpr {
     fn clone(&self) -> Self {
-        EchoExpr{ value: dyn_clone::clone_box(&*self.value) }
+        Self {
+            value: dyn_clone::clone_box(&*self.value),
+            newline: self.newline
+        }
     }
 }

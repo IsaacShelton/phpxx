@@ -1,5 +1,15 @@
 
-echo 1.0 + 2.0
-echo "Hello World"
-echo "Pi is"
-echo 3.14159
+// This is a comment
+# This is also a comment
+echo 1 + 2
+echo 1 - 2
+echo 1 * 2
+echo 1 / 2
+echo "i is the ninth letter in the alphabet" / "alpha"
+echo "This has seven characters:removed" - 7
+echo "This is reversed and has seven characters:removed" - -7
+echo " This" * -3
+
+# Ha ha, semicolons are single character comments
+echo "You could use a semicolon like a good citizen";
+echo "But why would you do that" echo -n "When you can do this" echo "?"
