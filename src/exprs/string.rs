@@ -21,6 +21,12 @@ impl StringExpr {
             val as NumberExpr => {
                 val.stringify()
             },
+            _val as VoidExpr => {
+                String::from("void")
+            },
+            val as ArrayExpr => {
+                val.stringify()
+            },
         }).unwrap_or(String::from(""))
     }
 
@@ -40,7 +46,7 @@ impl Expr for StringExpr {
         return self
     }
 
-    fn evaluate(&self) -> Expression {
+    fn evaluate(&self, _ctx: &mut Ctx) -> Expression {
         Box::new(self.clone())
     }
 
@@ -49,7 +55,7 @@ impl Expr for StringExpr {
     }
 
     fn visualize(&self) -> String {
-        snailquote::escape(&self.value).to_string()
+        format!("str(\"{}\")", snailquote::escape(&self.value))
     }
 
     fn plus(&self, other: &Expression) -> Expression {

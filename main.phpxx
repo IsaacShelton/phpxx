@@ -13,3 +13,36 @@ echo " This" * -3
 # Ha ha, semicolons are single character comments
 echo "You could use a semicolon like a good citizen";
 echo "But why would you do that" echo -n "When you can do this" echo "?"
+
+# Variables use '$' prefix
+$firstname = "Isaac"
+$lastname = "Shelton"
+
+# up() and down() can be used to create opaque scopes
+# Variables not found in the scope will NOT be able to access parent scopes
+up()
+// Will print 'void' since (void + str + void + str = void)
+echo $firstname + " " + $lastname + "!"
+down()
+
+# push() and pop() can be used to create transparent scopes
+# Variables not found in the scope will be able to access parent scopes
+push()
+// Will print 'Isaac Shelton!'
+echo $firstname + " " + $lastname + "!"
+pop()
+
+# Functions utilize these functions behind the scenes
+//function greet($name) {
+    # Hidden: up()
+    echo "Welcome " + $name
+    # Hidden: down()
+    # Hidden: throw()
+//}
+
+$names = arr(1, 2, 3, 4, arr(5, 6, 7, arr(8, 9, 10)))
+$other = arr(1, 2, 3, 4)
+echo "$names = " + $names
+echo "repr($names) = " + repr($names)
+echo "aka($names, $other) = " + aka($names, $other)
+echo "eq($names, $other) = " + eq($names, $other)

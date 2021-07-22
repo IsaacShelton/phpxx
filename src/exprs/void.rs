@@ -14,12 +14,12 @@ impl Expr for VoidExpr {
         return self
     }
 
-    fn evaluate(&self) -> Expression {
-        return Box::new(VoidExpr {});
+    fn evaluate(&self, _ctx: &mut Ctx) -> Expression {
+        VoidExpr::new()
     }
 
     fn stringify(&self) -> String {
-        String::from("<void>")
+        String::from("void")
     }
 
     fn visualize(&self) -> String {

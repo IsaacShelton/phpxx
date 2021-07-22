@@ -37,11 +37,11 @@ impl NumberExpr {
 
 impl Expr for NumberExpr {
     fn as_any(&self) -> &dyn std::any::Any {
-        return self
+        self
     }
 
-    fn evaluate(&self) -> Expression {
-        return Box::new(self.clone());
+    fn evaluate(&self, _ctx: &mut Ctx) -> Expression {
+        Box::new(self.clone())
     }
 
     fn stringify(&self) -> String {
@@ -49,22 +49,22 @@ impl Expr for NumberExpr {
     }
 
     fn visualize(&self) -> String {
-        return self.value.to_string()
+        self.value.to_string()
     }
 
     fn plus(&self, other: &Expression) -> Expression {
-        return NumberExpr::new(self.value + Self::coerce_to_number(other))
+        NumberExpr::new(self.value + Self::coerce_to_number(other))
     }
     
     fn minus(&self, other: &Expression) -> Expression {
-        return NumberExpr::new(self.value - Self::coerce_to_number(other))
+        NumberExpr::new(self.value - Self::coerce_to_number(other))
     }
 
     fn multiply(&self, other: &Expression) -> Expression {
-        return NumberExpr::new(self.value * Self::coerce_to_number(other))
+        NumberExpr::new(self.value * Self::coerce_to_number(other))
     }
     
     fn divide(&self, other: &Expression) -> Expression {
-        return NumberExpr::new(self.value / Self::coerce_to_number(other))
+        NumberExpr::new(self.value / Self::coerce_to_number(other))
     }
 }

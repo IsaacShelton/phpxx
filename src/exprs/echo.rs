@@ -7,7 +7,7 @@ pub struct EchoExpr {
 }
 
 impl EchoExpr {
-    pub fn new(value: Box<dyn Expr>, newline: bool) -> Box<dyn Expr> {
+    pub fn new(value: Expression, newline: bool) -> Expression {
         Box::new(Self { value, newline })
     }
 }
@@ -17,8 +17,8 @@ impl Expr for EchoExpr {
         return self;
     }
 
-    fn evaluate(&self) -> Expression {
-        let message = self.value.evaluate().stringify();
+    fn evaluate(&self, ctx: &mut Ctx) -> Expression {
+        let message = self.value.evaluate(ctx).stringify();
 
         if self.newline {
             println!("{}", message);

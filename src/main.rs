@@ -60,6 +60,6 @@ fn main() {
     };
 
     for s in statements {
-        s.evaluate();
+        s.evaluate(&mut ctx);
     }
 }

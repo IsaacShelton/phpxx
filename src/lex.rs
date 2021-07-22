@@ -59,6 +59,10 @@ impl<'a> Tokens<'a> {
     pub fn get_span(&self, index: usize) -> Option<&std::ops::Range<usize>> {
         self.spans.get(index)
     }
+
+    pub fn has_next(&self) -> bool {
+        self.next < self.items.len()
+    }
 }
 
 impl<'a> Iterator for Tokens<'a> {
@@ -76,11 +80,11 @@ impl<'a> Iterator for Tokens<'a> {
 
 #[derive(Logos, Debug, PartialEq, Copy, Clone)]
 pub enum Token {
-    #[token("echo")]
+    #[regex("echo")]
     Echo,
 
-    #[token("echo -n")]
-    EchoNoNewline,
+    #[regex("function")]
+    Function,
 
     #[regex(r#""([^"\\]|\\t|\\u|\\n|\\")*""#)]
     String,
@@ -102,6 +106,30 @@ pub enum Token {
 
     #[token("/")]
     Divide,
+    
+    #[token("(")]
+    Open,
+    
+    #[token(")")]
+    Close,
+    
+    #[token("{")]
+    Begin,
+    
+    #[token("}")]
+    End,
+
+    #[token(",")]
+    Next,
+
+    #[token("=")]
+    Assign,
+
+    #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]
+    Identifier,
+    
+    #[regex("\\$[a-zA-Z_][a-zA-Z0-9_]*")]
+    Variable,
 
     // We can also use this variant to define whitespace,
     // or any other matches we wish to skip.

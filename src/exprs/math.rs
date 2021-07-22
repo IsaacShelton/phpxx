@@ -17,9 +17,9 @@ impl Expr for MathExpr {
         return self
     }
 
-    fn evaluate(&self) -> Expression {
-        let l = self.lhs.evaluate();
-        let r = self.rhs.evaluate();
+    fn evaluate(&self, ctx: &mut Ctx) -> Expression {
+        let l = self.lhs.evaluate(ctx);
+        let r = self.rhs.evaluate(ctx);
         match self.operator {
             Token::Plus => l.plus(&r),
             Token::Minus => l.minus(&r),
@@ -44,29 +44,29 @@ impl Expr for MathExpr {
         format!("({} {} {})", self.lhs.visualize(), binary_op, self.rhs.visualize())
     }
 
-    fn plus(&self, other: &Expression) -> Expression {
-        self.evaluate().plus(&other.evaluate())
+    fn plus(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
     }
     
-    fn minus(&self, other: &Expression) -> Expression {
-        self.evaluate().minus(&other.evaluate())
+    fn minus(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
     }
 
-    fn multiply(&self, other: &Expression) -> Expression {
-        self.evaluate().minus(&other.evaluate())
+    fn multiply(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
     }
     
-    fn divide(&self, other: &Expression) -> Expression {
-        self.evaluate().minus(&other.evaluate())
+    fn divide(&self, _other: &Expression) -> Expression {
+        VoidExpr::new()
     }
 }
 
 impl Clone for MathExpr {
     fn clone(&self) -> Self {
         Self {
-            lhs: dyn_clone::clone_box(&*self.lhs),
+            lhs: self.lhs.clone(),
             operator: self.operator,
-            rhs: dyn_clone::clone_box(&*self.rhs),
+            rhs: self.rhs.clone(),
         }
     }
 }

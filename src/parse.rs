@@ -24,8 +24,9 @@ fn parse_statement(
     lead_token: &Token,
 ) -> Result<Expression, Error> {
     match lead_token {
-        Token::Echo => parse_echo(ctx, tokens, true),
-        Token::EchoNoNewline => parse_echo(ctx, tokens, false),
+        Token::Echo => parse_echo(ctx, tokens),
+        Token::Variable => parse_assign(ctx, tokens),
+        Token::Identifier => parse_call_expr(ctx, tokens),
         _ => Err(Error::new(
             "Unknown Statement".to_string(),
             Some(tokens.span()),
@@ -33,9 +34,52 @@ fn parse_statement(
     }
 }
 
-fn parse_echo(ctx: &mut Ctx, tokens: &mut Tokens, newline: bool) -> Result<Expression, Error> {
+fn parse_echo(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, Error> {
+    let mut newline = true;
+
+    if tokens.has_next() && *tokens.peek().unwrap() == Token::Minus {
+        // Skip over '-' that indicates option to echo
+        tokens.next();
+
+        if !tokens.has_next() || *tokens.next().unwrap() != Token::Identifier {
+            return Err(Error::new(
+                "Expected option after '-' after 'echo'".to_string(),
+                Some(tokens.span()),
+            ));
+        }
+
+        match &ctx.contents[tokens.span()] {
+            "n" => {
+                newline = false;
+            }
+            _ => {
+                return Err(Error::new(
+                    format!(
+                        "Invalid option -{} given to 'echo'",
+                        &ctx.contents[tokens.span()]
+                    ),
+                    Some(tokens.span()),
+                ))
+            }
+        }
+    }
+
     let expr = parse_expr(ctx, tokens)?;
     Ok(EchoExpr::new(expr, newline))
+}
+
+fn parse_assign(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, Error> {
+    let variable = &ctx.contents[tokens.span()];
+
+    if match tokens.next() {
+        Some(Token::Assign) => false,
+        _ => true
+    } {
+        return Err(Error::new("Expected '=' after variable name in statement".to_string(), Some(tokens.span())))
+    }
+
+    let value = parse_expr(ctx, tokens)?;
+    Ok(AssignExpr::new(variable.to_string(), value))
 }
 
 fn parse_expr(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, Error> {
@@ -65,6 +109,10 @@ fn parse_primary_expr(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, 
 
             return Ok(NumberExpr::new(value));
         }
+        Token::Variable => {
+            return Ok(VariableExpr::new(ctx.contents[tokens.span()].to_string()));
+        }
+        Token::Identifier => parse_call_expr(ctx, tokens),
         _ => return make_simple_parse_error("bad expression", tokens),
     }
 }
@@ -139,6 +187,54 @@ fn parse_rhs_expr(
     }
 
     Ok(rhs)
+}
+
+fn parse_call_expr(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, Error> {
+    let function = ctx.contents[tokens.span()].to_string();
+    let mut args = vec![];
+
+    if match tokens.next() {
+        Some(token) => *token != Token::Open,
+        None => true,
+    } {
+        return Err(Error::new(
+            "Expected '(' after identifer".to_string(),
+            Some(tokens.span()),
+        ));
+    }
+
+    loop {
+        if match tokens.peek() {
+            Some(Token::Close) => true,
+            None => {
+                return Err(Error::new(
+                    "Expected ')' before end of file".to_string(),
+                    Some(tokens.span()),
+                ))
+            }
+            _ => false,
+        } {
+            tokens.next();
+            break;
+        }
+
+        args.push(parse_expr(ctx, tokens)?);
+
+        if match tokens.next() {
+            Some(Token::Next) => false,
+            Some(Token::Close) => true,
+            _ => {
+                return Err(Error::new(
+                    "Expected ',' or ')' after argument to call".to_string(),
+                    Some(tokens.span()),
+                ))
+            }
+        } {
+            break;
+        }
+    }
+
+    Ok(CallExpr::new(function, args))
 }
 
 fn get_op_precedence(token: &Token) -> Option<usize> {
