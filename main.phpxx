@@ -32,13 +32,13 @@ push()
 echo $firstname + " " + $lastname + "!"
 pop()
 
-# Functions utilize these functions behind the scenes
-//function greet($name) {
-    # Hidden: up()
-    echo "Welcome " + $name
-    # Hidden: down()
-    # Hidden: throw()
-//}
+function getname ($test1, $test2, $test3) {
+    echo $test1
+    echo $test2
+    echo $test3
+    echo "args() = " + args()
+    throw(arr("isaac", "shelton"))
+}
 
 $names = arr(1, 2, 3, 4, arr(5, 6, 7, arr(8, 9, 10)))
 $other = arr(1, 2, 3, 4)
@@ -46,3 +46,25 @@ echo "$names = " + $names
 echo "repr($names) = " + repr($names)
 echo "aka($names, $other) = " + aka($names, $other)
 echo "eq($names, $other) = " + eq($names, $other)
+echo "getname() = " + getname("haha", "johnothan", 1, " am", "not ", "your", "daughter")
+
+$i = 0
+while lt($i, 10) {
+    echo "loopin' " + $i
+    $i = $i + 1
+}
+
+function echoflat($arr) {
+    $i = 0
+    while lt($i, count($arr)) {
+        $val = get($arr, $i)
+        if eq(repr($val), "[]") {
+            echoflat($val)
+        } else {
+            echo $val
+        }
+        $i = $i + 1
+    }
+}
+
+echoflat($names)

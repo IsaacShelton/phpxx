@@ -24,13 +24,18 @@ impl Expr for CallExpr {
             "repr" => repr(&args),
             "readline" => readline(),
             "eq" => eq(&args),
+            "lt" => lt(&args),
             "push" => push(ctx, &args),
             "pop" => pop(ctx, &args),
             "up" => up(ctx),
             "down" => down(ctx),
             "arr" => ArrayExpr::new(args),
             "aka" => aka(&args),
-            _ => VoidExpr::new(),
+            "throw" => throw(ctx, args),
+            "args" => args_impl(ctx),
+            "get" => get(&args),
+            "count" => count(&args),
+            _ => ctx.run_function(&self.function, args),
         }
     }
 
@@ -186,6 +191,45 @@ fn eq_impl_arr(a: &ArrayExpr, b: &ArrayExpr) -> bool {
     true
 }
 
+fn lt(args: &Vec<Expression>) -> Expression {
+    if args.len() > 2 {
+        for i in 0..(args.len() - 1) {
+            if !lt_impl(&args[i], &args[i + 1]) {
+                return NumberExpr::new(0.0);
+            }
+        }
+        return NumberExpr::new(1.0);
+    } else if args.len() < 2 {
+        return NumberExpr::new(1.0);
+    }
+
+    NumberExpr::new(if lt_impl(&args[0], &args[1]) {
+        1.0
+    } else {
+        0.0
+    })
+}
+
+fn lt_impl(a: &Expression, b: &Expression) -> bool {
+    let a_any = a.as_any();
+
+    match_cast!(a_any {
+        val as StringExpr => {
+            val.value < StringExpr::coerce_to_string(b)
+        },
+        val as NumberExpr => {
+            val.value < NumberExpr::coerce_to_number(b)
+        },
+        _val as VoidExpr => {
+            0.0 < NumberExpr::coerce_to_number(b)
+        },
+        val as ArrayExpr => {
+            (val.value.borrow().len() as f64) < NumberExpr::coerce_to_number(b)
+        },
+    })
+    .unwrap_or(false)
+}
+
 fn push(ctx: &mut Ctx, args: &Vec<Expression>) -> Expression {
     if args.len() == 0 {
         ctx.push_scope(false);
@@ -233,4 +277,59 @@ fn uid_of(a: &Expression) -> Option<usize> {
             val.uid()
         },
     })
+}
+
+fn throw(ctx: &mut Ctx, args: Vec<Expression>) -> Expression {
+    let mut args = args;
+
+    ctx.throw(match args.len() {
+        1 => std::mem::replace(&mut args[0], VoidExpr::new()),
+        0 => VoidExpr::new(),
+        _ => ArrayExpr::new(args),
+    });
+
+    VoidExpr::new()
+}
+
+fn args_impl(ctx: &mut Ctx) -> Expression {
+    // Note that only one call to args() is allowed,
+    // Any following calls will return an empty array
+    ArrayExpr::new(std::mem::replace(&mut ctx.args, vec![]))
+}
+
+fn count(args: &Vec<Expression>) -> Expression {
+    let collection = match args.first() {
+        Some(arg) => arg.as_any(),
+        None => return VoidExpr::new()
+    };
+
+    NumberExpr::new(match_cast!( collection {
+        val as ArrayExpr => {
+            val.value.borrow().len()
+        },
+        val as StringExpr => {
+            val.value.len()
+        },
+    }).unwrap_or(0) as f64)
+}
+
+fn get(args: &Vec<Expression>) -> Expression {
+    if args.len() != 2 {
+        return VoidExpr::new()
+    }
+
+    let collection = args[0].as_any();
+
+    match_cast!(collection {
+        val as ArrayExpr => {
+            let index = NumberExpr::coerce_to_number(&args[1]);
+
+            match val.value.borrow().get(index as usize) {
+                Some(value) => value.clone(),
+                None => VoidExpr::new()
+            }
+        },
+    }).unwrap_or_else(||
+        VoidExpr::new()
+    )
 }

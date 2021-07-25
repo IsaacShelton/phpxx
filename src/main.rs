@@ -59,7 +59,5 @@ fn main() {
         Ok(statements) => statements,
     };
 
-    for s in statements {
-        s.evaluate(&mut ctx);
-    }
+    ctx.run(&statements);
 }

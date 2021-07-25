@@ -4,31 +4,159 @@ use std::collections::HashMap;
 pub struct Ctx<'a> {
     pub contents: &'a str,
     pub scopes: Vec<Scope>,
+    pub functions: HashMap<String, Function>,
+    pub statements: Option<&'a Vec<Expression>>,
+    pub threw: bool,
+    pub thrown: Expression,
+    pub args: Vec<Expression>,
+    pub parsing_function: Option<usize>,
+    pub jump: Option<usize>,
+}
+
+pub struct Function {
+    address: usize,
+    args: Vec<String>,
 }
 
 pub struct Scope {
     pub variables: HashMap<String, Expression>,
-    pub is_hard: bool
+    pub is_hard: bool,
 }
 
 impl Scope {
     pub fn new(is_hard: bool) -> Self {
-        Self { variables: HashMap::new(), is_hard }
+        Self {
+            variables: HashMap::new(),
+            is_hard,
+        }
     }
 }
 
-impl Ctx<'_> {
+impl<'a> Ctx<'a> {
     pub fn new(contents: &str) -> Ctx {
-        Ctx { contents, scopes: vec![Scope::new(true)] }
+        Ctx {
+            contents,
+            scopes: vec![Scope::new(true)],
+            functions: HashMap::new(),
+            statements: None,
+            threw: false,
+            thrown: VoidExpr::new(),
+            args: vec![],
+            parsing_function: None,
+            jump: None,
+        }
+    }
+
+    pub fn prep_run(&mut self) {}
+
+    pub fn run(&mut self, statements: &'a Vec<Expression>) {
+        let mut statement_index = 0;
+        self.statements = Some(statements);
+
+        while statement_index < statements.len() {
+            statements[statement_index].evaluate(self);
+
+            if self.threw {
+                break;
+            }
+
+            match self.jump {
+                Some(index) => {
+                    statement_index = index;
+                    self.jump = None;
+                }
+                _ => statement_index += 1,
+            }
+        }
+    }
+
+    pub fn run_function(&mut self, name: &str, args: Vec<Expression>) -> Expression {
+        let mut statement_index;
+
+        let mut function_args = match self.functions.get(name) {
+            Some(function) => {
+                statement_index = function.address;
+                function.args.clone()
+            },
+            None => {
+                return VoidExpr::new()
+            }
+        };
+
+        // Bind function arguments to variables
+        self.up();
+        let bound = std::cmp::min(function_args.len(), args.len());
+        for i in 0..bound {
+            let name = function_args.pop().unwrap();
+            let value = args[bound - i - 1].clone();
+            self.set_variable(name, value);
+        }
+
+        let statements = self.statements.unwrap();
+        let previous_args = std::mem::replace(&mut self.args, args);
+
+        while statement_index < statements.len() {
+            statements[statement_index].evaluate(self);
+
+            if self.threw {
+                break;
+            } else {
+                statement_index += 1;
+            }
+        }
+
+        let return_value = if self.threw {
+            self.catch()
+        } else {
+            VoidExpr::new()
+        };
+
+        self.args = previous_args;
+        self.down();
+        return_value
+    }
+
+    pub fn throw(&mut self, value: Expression) {
+        self.threw = true;
+        self.thrown = value;
+    }
+
+    pub fn catch(&mut self) -> Expression {
+        assert_eq!(self.threw, true);
+        self.threw = false;
+        std::mem::replace(&mut self.thrown, VoidExpr::new())
+    }
+
+    pub fn add_function(&mut self, name: String, address: usize, args: Vec<String>) {
+        // Duplicate functions will be overwritten
+        self.functions.insert(name, Function { address, args });
     }
 
     pub fn set_variable(&mut self, variable: String, value: Expression) {
-        let scope = match self.scopes.last_mut() {
-            Some(scope) => scope,
-            _ => return ()
-        };
+        let mut depth: usize = 0;
 
-        scope.variables.insert(variable, value);
+        if self.scopes.len() == 0 {
+            return;
+        }
+
+        loop {
+            let scope_index = self.scopes.len() - depth - 1;
+            let scope = &mut self.scopes[scope_index];
+
+            if scope.variables.get(&variable).is_some() {
+                scope.variables.insert(variable, value);
+                return;
+            }
+
+            if scope.is_hard {
+                // Don't continue down the scope stack
+                break;
+            } else {
+                depth += 1;
+            }
+        }
+
+        self.scopes.last_mut().unwrap().variables.insert(variable, value);
     }
 
     pub fn get_variable(&self, variable: &str) -> Expression {
@@ -37,13 +165,13 @@ impl Ctx<'_> {
         if self.scopes.len() == 0 {
             return VoidExpr::new();
         }
-        
-        loop  {
+
+        loop {
             let scope = &self.scopes[self.scopes.len() - depth - 1];
 
             match scope.variables.get(variable) {
-                Some(value) => return dyn_clone::clone_box(&**value),
-                _ => ()
+                Some(value) => return value.clone(),
+                _ => (),
             }
 
             if scope.is_hard {
@@ -66,7 +194,6 @@ impl Ctx<'_> {
     pub fn pop_scope(&mut self) {
         self.scopes.pop();
     }
-    
     #[allow(dead_code)]
     pub fn up(&mut self) {
         self.push_scope(true);
@@ -76,15 +203,17 @@ impl Ctx<'_> {
     pub fn down(&mut self) {
         while match self.scopes.last() {
             Some(scope) => !scope.is_hard,
-            _ => false
+            _ => false,
         } {
             self.scopes.pop();
         }
 
-        if self.scopes.len() > 1 && match self.scopes.last() {
-            Some(scope) => scope.is_hard,
-            _ => false
-        } {
+        if self.scopes.len() > 1
+            && match self.scopes.last() {
+                Some(scope) => scope.is_hard,
+                _ => false,
+            }
+        {
             self.scopes.pop();
         }
     }

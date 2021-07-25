@@ -7,20 +7,11 @@ pub struct NumberExpr {
 
 impl NumberExpr {
     pub fn new(value: f64) -> Expression {
-        Box::new(Self { value: value })
+        Box::new(Self { value })
     }
 
     pub fn coerce_to_number(other: &Expression) -> f64 {
-        let other = other.as_any();
-        
-        match_cast!( other {
-            val as NumberExpr => {
-                val.value
-            },
-            val as StringExpr => {
-                val.value.parse::<f64>().unwrap_or(0.0)
-            },
-        }).unwrap_or(0.0)
+        Self::coerce_to_number_from_any(other.as_any())
     }
     
     pub fn coerce_to_number_from_any(other: &dyn std::any::Any) -> f64 {
@@ -31,7 +22,15 @@ impl NumberExpr {
             val as StringExpr => {
                 val.value.parse::<f64>().unwrap_or(0.0)
             },
+            val as ArrayExpr => {
+                val.value.borrow().len() as f64
+            },
         }).unwrap_or(0.0)
+    }
+
+    pub fn is_true(other: &Expression) -> bool {
+        let number = Self::coerce_to_number(other);
+        return number != 0.0
     }
 }
 

@@ -27,7 +27,8 @@ impl StringExpr {
             val as ArrayExpr => {
                 val.stringify()
             },
-        }).unwrap_or(String::from(""))
+        })
+        .unwrap_or(String::from(""))
     }
 
     pub fn multiply_string(string: &str, times: usize) -> String {
@@ -36,14 +37,13 @@ impl StringExpr {
         for _ in 0..(times as usize) {
             result.push_str(string);
         }
-        
         result
     }
 }
 
 impl Expr for StringExpr {
     fn as_any(&self) -> &dyn std::any::Any {
-        return self
+        self
     }
 
     fn evaluate(&self, _ctx: &mut Ctx) -> Expression {
@@ -55,13 +55,20 @@ impl Expr for StringExpr {
     }
 
     fn visualize(&self) -> String {
-        format!("str(\"{}\")", snailquote::escape(&self.value))
+        let inside = snailquote::escape(&self.value);
+
+        if inside.starts_with("\"") {
+            format!("{}", inside)
+        } else if inside.starts_with("\'") {
+            format!("\"{}\"", &inside[1..inside.len() - 1])
+        } else {
+            format!("\"{}\"", inside)
+        }
     }
 
     fn plus(&self, other: &Expression) -> Expression {
-        return StringExpr::new(format!("{}{}", self.value, Self::coerce_to_string(other)))
+        return StringExpr::new(format!("{}{}", self.value, Self::coerce_to_string(other)));
     }
-    
     fn minus(&self, original: &Expression) -> Expression {
         let other = original.as_any();
 
@@ -86,20 +93,18 @@ impl Expr for StringExpr {
 
         match value {
             Some(value) => return value,
-            None => return StringExpr::new("".to_string())
+            None => return StringExpr::new("".to_string()),
         }
     }
-    
     fn multiply(&self, other: &Expression) -> Expression {
         let count = NumberExpr::coerce_to_number(other) as i64;
-        
         return StringExpr::new(if count < 0 {
             let seed: String = (&self.value).graphemes(true).rev().collect();
             let count = count.checked_neg().unwrap_or(std::i64::MAX);
             Self::multiply_string(&seed, count as usize)
         } else {
             Self::multiply_string(&self.value, count as usize)
-        })
+        });
     }
 
     fn divide(&self, other: &Expression) -> Expression {
@@ -117,7 +122,7 @@ impl Expr for StringExpr {
 
         match value {
             Some(value) => value,
-            None => NumberExpr::new(0.0)
+            None => NumberExpr::new(0.0),
         }
     }
 }

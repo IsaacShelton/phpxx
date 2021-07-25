@@ -28,7 +28,7 @@ impl Expr for ArrayExpr {
     }
 
     fn stringify(&self) -> String {
-        format!("[{}]", self.value.borrow().iter().map(|x| x.stringify()).collect::<Vec<String>>().join(", "))
+        format!("[{}]", self.value.borrow().iter().map(|x| x.visualize()).collect::<Vec<String>>().join(", "))
     }
 
     fn visualize(&self) -> String {

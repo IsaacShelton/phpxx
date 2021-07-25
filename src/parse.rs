@@ -12,7 +12,8 @@ pub fn parse(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Vec<Expression>, Erro
             None => break,
         };
 
-        statements.push(parse_statement(ctx, tokens, &token)?);
+        let statement = parse_statement(ctx, tokens, &token, &mut statements)?;
+        statements.push(statement);
     }
 
     Ok(statements)
@@ -22,11 +23,16 @@ fn parse_statement(
     ctx: &mut Ctx,
     tokens: &mut Tokens,
     lead_token: &Token,
+    statements: &mut Vec<Expression>,
 ) -> Result<Expression, Error> {
     match lead_token {
         Token::Echo => parse_echo(ctx, tokens),
         Token::Variable => parse_assign(ctx, tokens),
         Token::Identifier => parse_call_expr(ctx, tokens),
+        Token::Function => parse_function(ctx, tokens, statements.len()),
+        Token::End => parse_end(ctx, tokens, statements),
+        Token::If => parse_conditional(ctx, tokens, false),
+        Token::While => parse_conditional(ctx, tokens, true),
         _ => Err(Error::new(
             "Unknown Statement".to_string(),
             Some(tokens.span()),
@@ -73,13 +79,185 @@ fn parse_assign(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, Error>
 
     if match tokens.next() {
         Some(Token::Assign) => false,
-        _ => true
+        _ => true,
     } {
-        return Err(Error::new("Expected '=' after variable name in statement".to_string(), Some(tokens.span())))
+        return Err(Error::new(
+            "Expected '=' after variable name in statement".to_string(),
+            Some(tokens.span()),
+        ));
     }
 
     let value = parse_expr(ctx, tokens)?;
     Ok(AssignExpr::new(variable.to_string(), value))
+}
+
+fn parse_function(ctx: &mut Ctx, tokens: &mut Tokens, address: usize) -> Result<Expression, Error> {
+    if ctx.parsing_function.is_some() {
+        return Err(Error::new(
+            "Already in function".to_string(),
+            Some(tokens.span()),
+        ));
+    }
+
+    let name = match tokens.next() {
+        Some(Token::Identifier) => ctx.contents[tokens.span()].to_string(),
+        _ => {
+            return Err(Error::new(
+                "Expected name of function".to_string(),
+                Some(tokens.span()),
+            ));
+        }
+    };
+
+    let mut args: Vec<String> = Vec::new();
+
+    match tokens.next() {
+        Some(Token::Open) => (),
+        _ => {
+            return Err(Error::new(
+                "Expected '(' after function name".to_string(),
+                Some(tokens.span()),
+            ));
+        }
+    }
+
+    loop {
+        let token = tokens.next();
+        match token {
+            Some(Token::Close) => break,
+            Some(Token::Variable) => (),
+            _ => {
+                return Err(Error::new(
+                    "Expected ')' or ',' in list of function arguments".to_string(),
+                    Some(tokens.span()),
+                ));
+            }
+        }
+
+        args.push(String::from(&ctx.contents[tokens.span()]));
+
+        match tokens.next() {
+            Some(Token::Close) => break,
+            Some(Token::Next) => (),
+            _ => {
+                tokens.next();
+                return Err(Error::new(
+                    "Expected ')' or ',' after function argument name".to_string(),
+                    Some(tokens.span()),
+                ));
+            }
+        }
+    }
+
+    match tokens.next() {
+        Some(Token::Begin) => (),
+        _ => {
+            return Err(Error::new(
+                "Expected '{' after function".to_string(),
+                Some(tokens.span()),
+            ));
+        }
+    }
+
+    ctx.add_function(name, address + 1, args);
+    ctx.parsing_function = Some(address);
+
+    // Will be overwritten later with jump instruction
+    Ok(VoidExpr::new())
+}
+
+fn parse_end(
+    ctx: &mut Ctx,
+    tokens: &mut Tokens,
+    statements: &mut Vec<Expression>,
+) -> Result<Expression, Error> {
+    if ctx.parsing_function.is_none() {
+        return Err(Error::new(
+            "Unexpected '}'".to_string(),
+            Some(tokens.span()),
+        ));
+    }
+
+    statements[ctx.parsing_function.unwrap()] = JumpExpr::new(statements.len() + 1);
+    ctx.parsing_function = None;
+    Ok(CallExpr::new("throw".to_string(), vec![]))
+}
+
+fn parse_conditional(
+    ctx: &mut Ctx,
+    tokens: &mut Tokens,
+    is_while: bool,
+) -> Result<Expression, Error> {
+    let conditional_kind_name = if is_while { "while" } else { "if" };
+
+    let condition = parse_expr(ctx, tokens)?;
+
+    match tokens.next() {
+        Some(Token::Begin) => (),
+        _ => {
+            return Err(Error::new(
+                format!(
+                    "Expected '{{' after condition of '{}' statement",
+                    conditional_kind_name
+                ),
+                Some(tokens.span()),
+            ));
+        }
+    }
+
+    let when_true = parse_block(ctx, tokens, conditional_kind_name)?;
+
+    let when_false = match tokens.peek() {
+        Some(Token::Else) => {
+            tokens.next();
+            match tokens.next() {
+                Some(Token::Begin) => parse_block(ctx, tokens, conditional_kind_name)?,
+                _ => {
+                    return Err(Error::new(
+                        format!(
+                            "Expected '{{' after 'else' keyword of '{}' statement",
+                            conditional_kind_name
+                        ),
+                        Some(tokens.span()),
+                    ));
+                }
+            }
+        }
+        _ => Vec::new(),
+    };
+
+    Ok(ConditionalExpr::new(
+        condition, when_true, when_false, is_while,
+    ))
+}
+
+fn parse_block(
+    ctx: &mut Ctx,
+    tokens: &mut Tokens,
+    statement_kind_name: &str,
+) -> Result<Vec<Expression>, Error> {
+    let mut statements: Vec<Expression> = Vec::new();
+
+    loop {
+        let lead_token = match tokens.next() {
+            None => {
+                return Err(Error::new(
+                    format!(
+                        "Expected '}}' to close '{}' statement before end of file",
+                        statement_kind_name
+                    ),
+                    Some(tokens.span()),
+                ))
+            }
+            Some(Token::End) => break,
+            token => token.unwrap(),
+        };
+
+        let stmt = parse_statement(ctx, tokens, &lead_token, &mut statements)?;
+        statements.push(stmt);
+    }
+
+    Ok(statements)
 }
 
 fn parse_expr(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, Error> {

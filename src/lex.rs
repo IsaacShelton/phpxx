@@ -86,6 +86,15 @@ pub enum Token {
     #[regex("function")]
     Function,
 
+    #[regex("if")]
+    If,
+
+    #[regex("else")]
+    Else,
+
+    #[regex("while")]
+    While,
+
     #[regex(r#""([^"\\]|\\t|\\u|\\n|\\")*""#)]
     String,
 

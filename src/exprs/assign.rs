@@ -14,7 +14,7 @@ impl AssignExpr {
 
 impl Expr for AssignExpr {
     fn as_any(&self) -> &dyn std::any::Any {
-        return self;
+        self
     }
 
     fn evaluate(&self, ctx: &mut Ctx) -> Expression {
