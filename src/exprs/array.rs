@@ -5,12 +5,13 @@ pub type ArrayValue = Gc<GcCell<Vec<Expression>>>;
 
 #[derive(Clone)]
 pub struct ArrayExpr {
-    pub value: ArrayValue
+    pub value: ArrayValue,
+    pub spread: bool
 }
 
 impl ArrayExpr {
-    pub fn new(items: Vec<Expression>) -> Expression {
-        Box::new(Self { value: Gc::new(GcCell::new(items)) })
+    pub fn new(items: Vec<Expression>, spread: bool) -> Expression {
+        Box::new(Self { value: Gc::new(GcCell::new(items)), spread })
     }
 
     pub fn uid(&self) -> usize {
@@ -24,7 +25,7 @@ impl Expr for ArrayExpr {
     }
 
     fn evaluate(&self, _ctx: &mut Ctx) -> Expression {
-        return Box::new(Self { value: self.value.clone() });
+        return Box::new(Self { value: self.value.clone(), spread: self.spread });
     }
 
     fn stringify(&self) -> String {

@@ -54,17 +54,41 @@ while lt($i, 10) {
     $i = $i + 1
 }
 
-function echoflat($arr) {
+function echostaircase($arr, $ident) {
     $i = 0
+    $ident = 0 + $ident
+
+    if not(eq(repr($arr), "[]")) {
+        echo "{echostaircase - not an array}"
+        throw()
+    }
+
     while lt($i, count($arr)) {
         $val = get($arr, $i)
         if eq(repr($val), "[]") {
-            echoflat($val)
+            echostaircase($val, 1 + $ident)
         } else {
+            $j = 0
+            while lt($j, $ident) {
+                echo -n "--> "
+                $j = $j + 1
+            }
+            
             echo $val
         }
         $i = $i + 1
     }
 }
 
-echoflat($names)
+function not($a) {
+    if $a {
+        throw(0)
+    } else {
+        throw(1)
+    }
+}
+
+// Prints staircase, since first argument is an array as expected
+echostaircase($names)
+// Prints "{echostaircase - not an array}", since first argument is 1
+echostaircase(.. $names)

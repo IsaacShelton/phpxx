@@ -29,7 +29,7 @@ impl Expr for CallExpr {
             "pop" => pop(ctx, &args),
             "up" => up(ctx),
             "down" => down(ctx),
-            "arr" => ArrayExpr::new(args),
+            "arr" => ArrayExpr::new(args, false),
             "aka" => aka(&args),
             "throw" => throw(ctx, args),
             "args" => args_impl(ctx),
@@ -285,7 +285,7 @@ fn throw(ctx: &mut Ctx, args: Vec<Expression>) -> Expression {
     ctx.throw(match args.len() {
         1 => std::mem::replace(&mut args[0], VoidExpr::new()),
         0 => VoidExpr::new(),
-        _ => ArrayExpr::new(args),
+        _ => ArrayExpr::new(args, false),
     });
 
     VoidExpr::new()
@@ -294,7 +294,7 @@ fn throw(ctx: &mut Ctx, args: Vec<Expression>) -> Expression {
 fn args_impl(ctx: &mut Ctx) -> Expression {
     // Note that only one call to args() is allowed,
     // Any following calls will return an empty array
-    ArrayExpr::new(std::mem::replace(&mut ctx.args, vec![]))
+    ArrayExpr::new(std::mem::replace(&mut ctx.args, vec![]), false)
 }
 
 fn count(args: &Vec<Expression>) -> Expression {

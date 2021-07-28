@@ -278,20 +278,24 @@ fn parse_primary_expr(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, 
             let value = snailquote::unescape(&ctx.contents[tokens.span()])
                 .or_else(|_err| make_simple_parse_error::<String>("bad string escape", tokens))?;
 
-            return Ok(StringExpr::new(value));
+            Ok(StringExpr::new(value))
         }
         Token::Number => {
             let value = ctx.contents[tokens.span()]
                 .parse::<f64>()
                 .or_else(|_err| make_simple_parse_error::<f64>("bad number", tokens))?;
 
-            return Ok(NumberExpr::new(value));
+            Ok(NumberExpr::new(value))
         }
         Token::Variable => {
-            return Ok(VariableExpr::new(ctx.contents[tokens.span()].to_string()));
+            Ok(VariableExpr::new(ctx.contents[tokens.span()].to_string()))
         }
         Token::Identifier => parse_call_expr(ctx, tokens),
-        _ => return make_simple_parse_error("bad expression", tokens),
+        Token::Spread => {
+            let inner = parse_primary_expr(ctx, tokens)?;
+            Ok(SpreadExpr::new(inner))
+        }
+        _ => make_simple_parse_error("bad expression", tokens),
     }
 }
 

@@ -1,5 +1,6 @@
-use super::exprs::{Expression, VoidExpr};
+use super::exprs::{Expression, VoidExpr, ArrayExpr};
 use std::collections::HashMap;
+use match_cast::match_cast;
 
 pub struct Ctx<'a> {
     pub contents: &'a str,
@@ -70,7 +71,7 @@ impl<'a> Ctx<'a> {
         }
     }
 
-    pub fn run_function(&mut self, name: &str, args: Vec<Expression>) -> Expression {
+    pub fn run_function(&mut self, name: &str, raw_args: Vec<Expression>) -> Expression {
         let mut statement_index;
 
         let mut function_args = match self.functions.get(name) {
@@ -83,13 +84,40 @@ impl<'a> Ctx<'a> {
             }
         };
 
+        let mut args: Vec<Expression> = Vec::new();
+
+        for arg in raw_args {
+            let arg_any = arg.as_any();
+
+            // TODO: Figure out a way to do this without *const
+            let additional: Option<Option<*const [Expression]>> = match_cast!(arg_any {
+                val as ArrayExpr => {
+                    if val.spread {
+                        Some(&val.value.borrow()[..] as *const [Expression])
+                    } else {
+                        None
+                    }
+                },
+            });
+            
+            // TODO: Figure out a way to do this without "unsafe"
+            match additional {
+                Some(Some(raw_slice)) => {
+                    args.extend_from_slice(unsafe {&*raw_slice} );
+                },
+                _ => {
+                    args.push(arg);
+                }
+            }
+        }
+
         // Bind function arguments to variables
         self.up();
         let bound = std::cmp::min(function_args.len(), args.len());
         for i in 0..bound {
-            let name = function_args.pop().unwrap();
-            let value = args[bound - i - 1].clone();
-            self.set_variable(name, value);
+            let name = function_args.remove(0);
+            let value = args[i].clone();
+            self.set_variable_here(name, value);
         }
 
         let statements = self.statements.unwrap();
@@ -156,6 +184,10 @@ impl<'a> Ctx<'a> {
             }
         }
 
+        self.scopes.last_mut().unwrap().variables.insert(variable, value);
+    }
+
+    pub fn set_variable_here(&mut self, variable: String, value: Expression) {
         self.scopes.last_mut().unwrap().variables.insert(variable, value);
     }
 
