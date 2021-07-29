@@ -97,3 +97,34 @@ echostaircase(.. $names)
 echo 1 + 2 * 3
 echo 1 + (2 * 3)
 echo ((1 + (2 * 3)) + 1) * 2
+
+$push_test = arr()
+$i = 0
+while lt($i, 10) {
+    push($push_test, 1 + $i)
+    $i = $i + 1
+}
+echo $push_test
+
+$pull_test = arr(..$push_test)
+echo $pull_test
+
+echo -n "Popped out order: "
+while count($push_test) {
+    echo -n pop($push_test)
+
+    if count($push_test) {
+        echo -n ", "
+    }
+}
+echo ""
+
+echo -n "Pulled out order: "
+while count($pull_test) {
+    echo -n pull($pull_test)
+
+    if count($pull_test) {
+        echo -n ", "
+    }
+}
+echo ""

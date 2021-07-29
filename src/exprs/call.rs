@@ -10,6 +10,37 @@ impl CallExpr {
     pub fn new(function: String, args: Vec<Expression>) -> Expression {
         Box::new(Self { function, args })
     }
+
+    fn evaluate_args(&self, ctx: &mut Ctx) -> Vec<Expression> {
+        // Takes stored expressions for arguments and returns an evaluated copy of arguments
+        // (which may or may not be the same length)
+
+        let mut args: Vec<Expression> = Vec::new();
+
+        for raw_arg in self.args.iter() {
+            let arg = raw_arg.evaluate(ctx);
+            let arg_any = arg.as_any();
+
+            // TODO: Figure out a way to do this without *const
+            let additional: Option<Option<*const [Expression]>> = match_cast!(arg_any {
+                val as ArrayExpr => {
+                    if val.spread {
+                        Some(&val.value.borrow()[..] as *const [Expression])
+                    } else {
+                        None
+                    }
+                },
+            });
+
+            // TODO: Figure out a way to do this without "unsafe"
+            match additional {
+                Some(Some(raw_slice)) => args.extend_from_slice(unsafe { &*raw_slice }),
+                _ => args.push(arg),
+            }
+        }
+
+        args
+    }
 }
 
 impl Expr for CallExpr {
@@ -18,7 +49,7 @@ impl Expr for CallExpr {
     }
 
     fn evaluate(&self, ctx: &mut Ctx) -> Expression {
-        let args: Vec<Expression> = self.args.iter().map(|x| x.evaluate(ctx)).collect();
+        let args = self.evaluate_args(ctx);
 
         match &self.function[..] {
             "repr" => repr(&args),
@@ -27,6 +58,7 @@ impl Expr for CallExpr {
             "lt" => lt(&args),
             "push" => push(ctx, &args),
             "pop" => pop(ctx, &args),
+            "pull" => pull(&args),
             "up" => up(ctx),
             "down" => down(ctx),
             "arr" => ArrayExpr::new(args, false),
@@ -231,19 +263,66 @@ fn lt_impl(a: &Expression, b: &Expression) -> bool {
 }
 
 fn push(ctx: &mut Ctx, args: &Vec<Expression>) -> Expression {
-    if args.len() == 0 {
-        ctx.push_scope(false);
-    }
+    match args.len() {
+        0 => {
+            ctx.push_scope(false);
+            VoidExpr::new()
+        }
+        2 => {
+            let collection = args[0].as_any();
+            let item = &args[1];
 
-    VoidExpr::new()
+            if let Some(array_expr) = collection.downcast_ref::<ArrayExpr>() {
+                array_expr.value.borrow_mut().push(item.clone());
+            }
+
+            VoidExpr::new()
+        }
+        _ => VoidExpr::new(),
+    }
 }
 
 fn pop(ctx: &mut Ctx, args: &Vec<Expression>) -> Expression {
-    if args.len() == 0 {
-        ctx.pop_scope();
-    }
+    match args.len() {
+        0 => {
+            ctx.pop_scope();
+            VoidExpr::new()
+        }
+        1 => {
+            let collection = args[0].as_any();
 
-    VoidExpr::new()
+            let popped = if let Some(array_expr) = collection.downcast_ref::<ArrayExpr>() {
+                array_expr.value.borrow_mut().pop()
+            } else {
+                None
+            };
+
+            popped.unwrap_or_else(|| VoidExpr::new())
+        }
+        _ => VoidExpr::new(),
+    }
+}
+
+fn pull(args: &Vec<Expression>) -> Expression {
+    match args.len() {
+        1 => {
+            let collection = args[0].as_any();
+
+            let popped = if let Some(array_expr) = collection.downcast_ref::<ArrayExpr>() {
+                // NOTE: Won't combine conditionals since still marked as "experimental" feature in rust
+                if array_expr.value.borrow().len() > 0 {
+                    Some(array_expr.value.borrow_mut().remove(0))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            popped.unwrap_or_else(|| VoidExpr::new())
+        }
+        _ => VoidExpr::new(),
+    }
 }
 
 fn up(ctx: &mut Ctx) -> Expression {
@@ -297,25 +376,9 @@ fn args_impl(ctx: &mut Ctx) -> Expression {
     ArrayExpr::new(std::mem::replace(&mut ctx.args, vec![]), false)
 }
 
-fn count(args: &Vec<Expression>) -> Expression {
-    let collection = match args.first() {
-        Some(arg) => arg.as_any(),
-        None => return VoidExpr::new()
-    };
-
-    NumberExpr::new(match_cast!( collection {
-        val as ArrayExpr => {
-            val.value.borrow().len()
-        },
-        val as StringExpr => {
-            val.value.len()
-        },
-    }).unwrap_or(0) as f64)
-}
-
 fn get(args: &Vec<Expression>) -> Expression {
     if args.len() != 2 {
-        return VoidExpr::new()
+        return VoidExpr::new();
     }
 
     let collection = args[0].as_any();
@@ -329,7 +392,25 @@ fn get(args: &Vec<Expression>) -> Expression {
                 None => VoidExpr::new()
             }
         },
-    }).unwrap_or_else(||
-        VoidExpr::new()
+    })
+    .unwrap_or_else(|| VoidExpr::new())
+}
+
+fn count(args: &Vec<Expression>) -> Expression {
+    let collection = match args.first() {
+        Some(arg) => arg.as_any(),
+        None => return VoidExpr::new(),
+    };
+
+    NumberExpr::new(
+        match_cast!( collection {
+            val as ArrayExpr => {
+                val.value.borrow().len()
+            },
+            val as StringExpr => {
+                val.value.len()
+            },
+        })
+        .unwrap_or(0) as f64,
     )
 }

@@ -1,6 +1,5 @@
-use super::exprs::{Expression, VoidExpr, ArrayExpr};
+use super::exprs::{Expression, VoidExpr};
 use std::collections::HashMap;
-use match_cast::match_cast;
 
 pub struct Ctx<'a> {
     pub contents: &'a str,
@@ -71,7 +70,7 @@ impl<'a> Ctx<'a> {
         }
     }
 
-    pub fn run_function(&mut self, name: &str, raw_args: Vec<Expression>) -> Expression {
+    pub fn run_function(&mut self, name: &str, args: Vec<Expression>) -> Expression {
         let mut statement_index;
 
         let mut function_args = match self.functions.get(name) {
@@ -83,33 +82,6 @@ impl<'a> Ctx<'a> {
                 return VoidExpr::new()
             }
         };
-
-        let mut args: Vec<Expression> = Vec::new();
-
-        for arg in raw_args {
-            let arg_any = arg.as_any();
-
-            // TODO: Figure out a way to do this without *const
-            let additional: Option<Option<*const [Expression]>> = match_cast!(arg_any {
-                val as ArrayExpr => {
-                    if val.spread {
-                        Some(&val.value.borrow()[..] as *const [Expression])
-                    } else {
-                        None
-                    }
-                },
-            });
-            
-            // TODO: Figure out a way to do this without "unsafe"
-            match additional {
-                Some(Some(raw_slice)) => {
-                    args.extend_from_slice(unsafe {&*raw_slice} );
-                },
-                _ => {
-                    args.push(arg);
-                }
-            }
-        }
 
         // Bind function arguments to variables
         self.up();
