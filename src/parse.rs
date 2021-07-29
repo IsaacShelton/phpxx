@@ -287,13 +287,19 @@ fn parse_primary_expr(ctx: &mut Ctx, tokens: &mut Tokens) -> Result<Expression, 
 
             Ok(NumberExpr::new(value))
         }
-        Token::Variable => {
-            Ok(VariableExpr::new(ctx.contents[tokens.span()].to_string()))
-        }
+        Token::Variable => Ok(VariableExpr::new(ctx.contents[tokens.span()].to_string())),
         Token::Identifier => parse_call_expr(ctx, tokens),
         Token::Spread => {
             let inner = parse_primary_expr(ctx, tokens)?;
             Ok(SpreadExpr::new(inner))
+        }
+        Token::Open => {
+            let inner = parse_expr(ctx, tokens)?;
+
+            match tokens.next() {
+                Some(Token::Close) => Ok(inner),
+                _ => Err(Error::new("Expected ')' to close expression".to_string(), Some(tokens.span())))
+            }
         }
         _ => make_simple_parse_error("bad expression", tokens),
     }

@@ -92,3 +92,8 @@ function not($a) {
 echostaircase($names)
 // Prints "{echostaircase - not an array}", since first argument is 1
 echostaircase(.. $names)
+
+// Parentheses
+echo 1 + 2 * 3
+echo 1 + (2 * 3)
+echo ((1 + (2 * 3)) + 1) * 2
